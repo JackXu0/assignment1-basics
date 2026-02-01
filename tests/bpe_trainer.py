@@ -1,4 +1,5 @@
 from collections import defaultdict
+import time
 
 
 class BPE_TRAINER:
@@ -10,6 +11,7 @@ class BPE_TRAINER:
 
     def train(self):
         # vocab initialization
+        start = time.time()
         vocab = {i: bytes([i]) for i in range(256)}
         merges = []
 
@@ -87,10 +89,12 @@ class BPE_TRAINER:
                     pair_to_sequences[pair].add(seq_idx)
             
             # Clean up any zero or negative counts
-            pairs_to_remove = [p for p, c in pair_counts.items() if c <= 0]
-            for p in pairs_to_remove:
-                del pair_counts[p]
-                if p in pair_to_sequences:
-                    del pair_to_sequences[p]
+            # pairs_to_remove = [p for p, c in pair_counts.items() if c <= 0]
+            # for p in pairs_to_remove:
+            #     del pair_counts[p]
+            #     if p in pair_to_sequences:
+            #         del pair_to_sequences[p]
+        end = time.time()
+        print('bpe training time', end - start)
 
         return (vocab, merges)

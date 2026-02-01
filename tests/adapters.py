@@ -9,9 +9,8 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-from tests import pre_tokenizer
-from tests.bpe_trainer import BPE_TRAINER
-from .pre_tokenizer import PreTokenizer
+from bpe_trainer import BPE_TRAINER
+from pre_tokenizer import PreTokenizer
 from collections import defaultdict
 
 
@@ -605,5 +604,9 @@ def run_train_bpe(
                     
 
 
-# if __name__ == '__main__':
-#     run_train_bpe('../cs336_basics/data/TinyStoriesV2-GPT4-valid.txt', 500, ["<|endoftext|>"])
+if __name__ == '__main__':
+    vocab, merges = run_train_bpe('cs336_basics/data/owt_train.txt', 10000, ["<|endoftext|>"])
+
+    print('vocab lens', len(vocab))
+
+    # print('merges', merges)

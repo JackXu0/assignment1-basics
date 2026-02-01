@@ -92,9 +92,12 @@ class PreTokenizer:
 
         # FILE_PATH = 'data/TinyStoriesV2-GPT4-train.txt'
         NUM_PROCESSES = 12
+        # Use more chunks than processes to limit memory usage
+        # Each worker processes one chunk at a time, keeping memory bounded
+        NUM_CHUNKS = NUM_PROCESSES * 8
 
         with open(self.file_path, "rb") as f:
-            boundaries = self._find_chunk_boundaries(f, NUM_PROCESSES, self.special_tokens[0].encode('utf-8'))
+            boundaries = self._find_chunk_boundaries(f, NUM_CHUNKS, self.special_tokens[0].encode('utf-8'))
 
         # multi - processing
         pre_tokens = defaultdict(int)
@@ -104,16 +107,18 @@ class PreTokenizer:
             chunk_args.append((self.file_path, start, end))
 
         with Pool(processes=NUM_PROCESSES) as pool:
-            results = pool.map(self._process_chunk, chunk_args)
-
-        for result in results:
-            for k, v in result.items():
-                pre_tokens[k] += v
+            # Use imap_unordered for memory efficiency:
+            # - Processes chunks lazily as workers become available
+            # - Results are aggregated as they complete (not all at once)
+            # - Allows GC to free completed chunk results
+            for result in pool.imap_unordered(self._process_chunk, chunk_args):
+                for k, v in result.items():
+                    pre_tokens[k] += v
 
         end_time = time.time()
 
         # print('total tokens', len(pre_tokens.keys()))
         # print('total count', sum(pre_tokens.values()))
-        print("multi processing elapsed time: ", end_time - start_time)
+        print("pre tokenization time: ", end_time - start_time)
 
         return pre_tokens
