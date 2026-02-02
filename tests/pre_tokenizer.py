@@ -31,30 +31,19 @@ class PreTokenizer:
 
         chunk_size = file_size // desired_num_chunks
 
-        # Initial guesses for chunk boundary locations, uniformly spaced
-        # Chunks start on previous index, don't include last index
         chunk_boundaries = [i * chunk_size for i in range(desired_num_chunks + 1)]
         chunk_boundaries[-1] = file_size
-
-        mini_chunk_size = 4096  # Read ahead by 4k bytes at a time
 
         for bi in range(1, len(chunk_boundaries) - 1):
             initial_position = chunk_boundaries[bi]
             file.seek(initial_position)  # Start at boundary guess
-            while True:
-                mini_chunk = file.read(mini_chunk_size)  # Read a mini chunk
+            chunk = file.read(chunk_size)  # Read a mini chunk
 
-                # If EOF, this boundary should be at the end of the file
-                if mini_chunk == b"":
-                    chunk_boundaries[bi] = file_size
-                    break
-
-                # Find the special token in the mini chunk
-                found_at = mini_chunk.find(split_special_token)
-                if found_at != -1:
-                    chunk_boundaries[bi] = initial_position + found_at
-                    break
-                initial_position += mini_chunk_size
+            found_at = chunk.find(split_special_token)
+            if found_at != -1:
+                chunk_boundaries[bi] = initial_position + found_at
+            elif chunk == b'':
+                chunk_boundaries[bi] = file_size
 
         # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
         return sorted(set(chunk_boundaries))
@@ -90,11 +79,10 @@ class PreTokenizer:
 
     def get_pre_tokens(self):
 
-        # FILE_PATH = 'data/TinyStoriesV2-GPT4-train.txt'
         NUM_PROCESSES = 12
-        # Use more chunks than processes to limit memory usage
-        # Each worker processes one chunk at a time, keeping memory bounded
-        NUM_CHUNKS = NUM_PROCESSES * 8
+        # Working memory required to file size // k. 
+        # owt dataset is around 11GB and my mac has 6 GB free memory
+        NUM_CHUNKS = NUM_PROCESSES * 2
 
         with open(self.file_path, "rb") as f:
             boundaries = self._find_chunk_boundaries(f, NUM_CHUNKS, self.special_tokens[0].encode('utf-8'))
@@ -107,10 +95,7 @@ class PreTokenizer:
             chunk_args.append((self.file_path, start, end))
 
         with Pool(processes=NUM_PROCESSES) as pool:
-            # Use imap_unordered for memory efficiency:
-            # - Processes chunks lazily as workers become available
             # - Results are aggregated as they complete (not all at once)
-            # - Allows GC to free completed chunk results
             for result in pool.imap_unordered(self._process_chunk, chunk_args):
                 for k, v in result.items():
                     pre_tokens[k] += v
