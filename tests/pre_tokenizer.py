@@ -42,7 +42,7 @@ class PreTokenizer:
             found_at = chunk.find(split_special_token)
             if found_at != -1:
                 chunk_boundaries[bi] = initial_position + found_at
-            elif chunk == b'':
+            else:
                 chunk_boundaries[bi] = file_size
 
         # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
