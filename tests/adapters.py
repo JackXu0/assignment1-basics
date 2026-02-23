@@ -34,7 +34,10 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
 
-    raise NotImplementedError
+    from cs336_basics.building_blocks import Linear
+    linear = Linear(d_in, d_out)
+    linear.weight = torch.nn.Parameter(weights)
+    return linear(in_features)
 
 
 def run_embedding(
@@ -605,9 +608,21 @@ def run_train_bpe(
                     
 
 
-# if __name__ == '__main__':
-    # vocab, merges = run_train_bpe('cs336_basics/data/owt_train.txt', 10000, ["<|endoftext|>"])
+if __name__ == '__main__':
 
-    # print('vocab lens', len(vocab))
+    special_tokens = ["<|endoftext|>"]
+    vocab, merges = run_train_bpe('cs336_basics/data/owt_train.txt', 10000, special_tokens)
 
-    # print('merges', merges)
+    tokenizer = get_tokenizer(vocab, merges, special_tokens)
+
+    tokens = []
+
+    with open('cs336_basics/data/owt-10.txt', 'r') as f:
+        for t in tokenizer.encode_iterable(f):
+            tokens.append(t)
+
+    print('file size', os.path.getsize('cs336_basics/data/owt-10.txt'))
+    print('vocab size', len(vocab))
+    print('tokens', len(tokens))
+
+
