@@ -37,6 +37,13 @@ def test_embedding(numpy_snapshot, ts_state_dict, in_indices, vocab_size, d_mode
         weights=embedding_weight,
         token_ids=in_indices,
     )
+
+    print('------AAA----')
+    print(in_indices[0])
+    
+    print(embedding_weight[0])
+    print(output[0])
+    # print(numpy_snapshot[0])
     numpy_snapshot.assert_match(output)
 
 
