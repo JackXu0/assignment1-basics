@@ -45,3 +45,21 @@ class RMSNorm(torch.nn.Module):
         rms = (x_sq.mean(dim=-1, keepdim=True) + self.eps) ** 0.5
         return (x / rms) * self.weight
 
+
+class SWIGLU(torch.nn.Module):
+
+    def __init__(self, d_model, d_ff):
+        super().__init__()
+        self.d_model = d_model
+        self.d_ff = d_ff
+        self.w1 = Linear(d_ff, d_model)
+        self.w3 = Linear(d_ff, d_model)
+        self.w2 = Linear(d_model, d_ff)
+
+    def forward(self, x: torch.Tensor):
+        z = self.w1(x)
+        gate = z * torch.sigmoid(z)
+        value = self.w3(x)
+        return self.w2(gate * value)
+        
+
