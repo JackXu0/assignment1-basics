@@ -93,6 +93,17 @@ def softmax(x: torch.Tensor, i: int):
     denominator = expo.sum(dim=i, keepdim=True)
     
     return expo/denominator
+
+def scaled_dot_product_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask=None):
+    scale = k.shape[-1] ** 0.5
+    scores = q @ k.transpose(-2, -1) / scale
+
+    if mask is not None:
+        scores = scores.masked_fill(~mask, float("-inf"))
+
+    weights = softmax(scores, -1)
+    return weights @ v
+
     
 
 
