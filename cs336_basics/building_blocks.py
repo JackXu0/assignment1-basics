@@ -1,3 +1,4 @@
+import token
 import torch
 import torch.nn as nn
 
@@ -94,6 +95,14 @@ def softmax(x: torch.Tensor, i: int):
     
     return expo/denominator
 
+def causal_mask(seq_len: int, device: torch.device | None = None) -> torch.Tensor:
+    """Boolean mask for causal attention: position i can attend to positions j <= i.
+    Returns shape (seq_len, seq_len), True where attention is allowed."""
+    return torch.tril(
+        torch.ones(seq_len, seq_len, dtype=torch.bool, device=device)
+    )
+
+
 def scaled_dot_product_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask=None):
     scale = k.shape[-1] ** 0.5
     scores = q @ k.transpose(-2, -1) / scale
@@ -103,6 +112,49 @@ def scaled_dot_product_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tens
 
     weights = softmax(scores, -1)
     return weights @ v
+
+class MultiHeadAttention(torch.nn.Module):
+
+    def __init__(self, d_model, num_heads, max_seq_len=None, theta=None):
+        super().__init__()
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.d_k = d_model // num_heads
+        self.d_v = d_model // num_heads
+        self.q_proj = Linear(d_model, d_model)
+        self.k_proj = Linear(d_model, d_model)
+        self.v_proj = Linear(d_model, d_model)
+        self.o_proj = Linear(d_model, d_model)
+
+        if max_seq_len is not None and theta is not None:
+            self.rope = RotaryPositionalEmbedding(theta, self.d_k, max_seq_len)
+        else:
+            self.rope = None
+
+    def forward(self, x: torch.Tensor, token_positions=None):
+        seq_len = x.size(-2)
+        mask = causal_mask(seq_len, device=x.device)
+        Q = self.q_proj(x)
+        K = self.k_proj(x)
+        V = self.v_proj(x)
+        # (..., seq_len, num_heads * d_k/d_v) -> (..., num_heads, seq_len, d_k/d_v)
+        Q = Q.unflatten(-1, (self.num_heads, self.d_k)).transpose(-3, -2)
+        K = K.unflatten(-1, (self.num_heads, self.d_k)).transpose(-3, -2)
+        V = V.unflatten(-1, (self.num_heads, self.d_v)).transpose(-3, -2)
+
+        if self.rope is not None:
+            if token_positions is None:
+                token_positions = torch.arange(seq_len, device=x.device)
+            Q = self.rope(Q, token_positions)
+            K = self.rope(K, token_positions)
+
+        attn_out = scaled_dot_product_attention(Q, K, V, mask)
+        # (..., num_heads, seq_len, d_v) -> (..., seq_len, num_heads * d_v)
+        attn_out = attn_out.transpose(-3, -2).flatten(-2)
+        return self.o_proj(attn_out)
+
+
+
 
     
 
