@@ -95,6 +95,29 @@ def softmax(x: torch.Tensor, i: int):
     
     return expo/denominator
 
+def cross_entropy(logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    """Cross entropy loss: ℓ_i = -log(softmax(o_i)[x_{i+1}]).
+
+    Uses max subtraction for numerical stability and log-sum-exp to cancel log/exp.
+    Batch dimensions come first; returns the average loss over the batch.
+
+    Args:
+        logits: Predicted logits, shape (..., vocab_size).
+        targets: Target class indices, shape (...).
+
+    Returns:
+        Scalar tensor: average cross entropy over the batch.
+    """
+    # Subtract max over last dim for numerical stability
+    max_vals = logits.max(dim=-1, keepdim=True).values
+    logits_stable = logits - max_vals
+    # -log(softmax(o)[t]) = log(sum(exp(o))) - o[t] = log_sum_exp(o) - o[t]
+    log_sum_exp = max_vals.squeeze(-1) + torch.log(torch.exp(logits_stable).sum(dim=-1))
+    logits_at_targets = logits.gather(-1, targets.unsqueeze(-1)).squeeze(-1)
+    loss_per_example = log_sum_exp - logits_at_targets
+    return loss_per_example.mean()
+
+
 def causal_mask(seq_len: int, device: torch.device | None = None) -> torch.Tensor:
     """Boolean mask for causal attention: position i can attend to positions j <= i.
     Returns shape (seq_len, seq_len), True where attention is allowed."""
